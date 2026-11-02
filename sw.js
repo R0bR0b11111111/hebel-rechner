@@ -4,7 +4,7 @@
  * ersten Online-Laden auch offline startet. (Offline-Fallback der App
  * zeichnet notfalls die Diagramme selbst.)
  */
-const CACHE_VERSION = 'hebel-rechner-ios-v15';
+const CACHE_VERSION = 'hebel-rechner-ios-v16';
 const APP_SHELL = [
   './',
   './index.html',
@@ -40,6 +40,10 @@ self.addEventListener('activate', (event) => {
     );
     await self.clients.claim();
   })());
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('fetch', (event) => {

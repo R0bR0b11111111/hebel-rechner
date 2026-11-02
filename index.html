@@ -5321,8 +5321,25 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
   }
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    var swRefreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (swRefreshing) return;
+      swRefreshing = true;
+      window.location.reload();
+    });
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw.js').catch(function () {});
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (registration) {
+        registration.update().catch(function () {});
+        registration.addEventListener('updatefound', function () {
+          var worker = registration.installing;
+          if (!worker) return;
+          worker.addEventListener('statechange', function () {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+              worker.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        });
+      }).catch(function () {});
     });
   }
 })();

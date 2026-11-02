@@ -5,6 +5,9 @@ Diese Version ist eine installierbare Web-App (PWA). Sie sieht auf dem
 iPhone wie eine normale App aus und lässt sich auf dem Home-Bildschirm
 ablegen – ohne App Store, ohne Apple-Entwicklerkonto.
 
+Bereits dauerhaft veröffentlicht:
+https://r0br0b11111111.github.io/hebel-rechner-pwa/
+
 Voraussetzung: Der Ordner muss über eine HTTPS-Adresse erreichbar sein.
 Über Dateien/„file://“ lässt sich die App auf dem iPhone nicht sauber
 öffnen und nicht als App installieren.
