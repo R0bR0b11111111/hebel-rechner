@@ -3474,6 +3474,18 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
     return years + ',' + months;
   }
 
+  /**
+   * Der Zielhebel wird bereits im Startmonat eingegangen. Deshalb zeigen
+   * Startpunkt in Tabelle und Diagrammen direkt den Zielhebel; ab dem
+   * ersten Simulationsmonat gilt der tatsächliche FK/EK-Wert.
+   */
+  function displayLeverageFraction(point) {
+    if (!point || !(point.equity > 0)) return null;
+    var isStart = point.month === 0 || (point.month === undefined && point.year === 0);
+    if (isStart && state.leverage > 0) return state.leverage;
+    return point.debt / point.equity;
+  }
+
   function formatYearCount(years) {
     return String(years) + (years === 1 ? ' Jahr' : ' Jahren');
   }
@@ -3889,7 +3901,8 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
       var classAttribute = classes.length ? ' class="' + classes.join(' ') + '"' : '';
 
       var yearCell = String(point.year + 1);
-      var leverageCell = point.equity > 0 ? formatPercent0(point.debt / point.equity) : '–';
+      var leverageFraction = displayLeverageFraction(point);
+      var leverageCell = leverageFraction === null ? '–' : formatPercent0(leverageFraction);
       var age = state.startAge + point.year;
 
       return '<tr' + classAttribute + ' data-year="' + point.year + '" tabindex="0"' +
@@ -3932,7 +3945,8 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
     dom.ageEquity.textContent = formatEuro(point.equity);
     dom.ageAssets.textContent = formatEuro(point.assets);
     dom.ageDebt.textContent = formatEuro(point.debt);
-    dom.ageLeverage.textContent = point.equity > 0 ? formatPercent0(point.debt / point.equity) : '–';
+    var leverageFraction = displayLeverageFraction(point);
+    dom.ageLeverage.textContent = leverageFraction === null ? '–' : formatPercent0(leverageFraction);
 
     var invested = state.startEquity + point.cumulativeSavings;
     dom.ageInvested.textContent = formatEuro(invested);
@@ -4555,9 +4569,10 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
         {
           label: 'Ist-Hebel',
           data: quarterlyPoints(simulation).map(function (point) {
+            var leverageFraction = displayLeverageFraction(point);
             return {
               x: point.month / 12,
-              y: point.equity > 0 ? (point.debt / point.equity) * 100 : 0
+              y: leverageFraction === null ? 0 : leverageFraction * 100
             };
           }),
           borderColor: THEME.ink,
@@ -4807,7 +4822,8 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
           fill: false,
           lineWidth: 3,
           points: quarterlyPoints(simulation).map(function (point) {
-            return [point.month / 12, point.equity > 0 ? (point.debt / point.equity) * 100 : 0];
+            var leverageFraction = displayLeverageFraction(point);
+            return [point.month / 12, leverageFraction === null ? 0 : leverageFraction * 100];
           })
         }
       ]

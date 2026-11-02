@@ -4,7 +4,7 @@
  * ersten Online-Laden auch offline startet. (Offline-Fallback der App
  * zeichnet notfalls die Diagramme selbst.)
  */
-const CACHE_VERSION = 'hebel-rechner-ios-v16';
+const CACHE_VERSION = 'hebel-rechner-ios-v17';
 const APP_SHELL = [
   './',
   './index.html',
