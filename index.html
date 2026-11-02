@@ -3533,16 +3533,10 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
     return percentFormatter1.format(value);
   }
 
-  /** Tooltip-Titel: Jahreszählung ab Jahr 1, Vierteljahre als 18,0 · 18,3 … */
+  /** Tooltip-Titel: nur der Alterswert im Vierteljahresformat, z. B. 24,0 · 24,3. */
   function formatTooltipTime(yearValue) {
     if (!isFinite(yearValue)) return '';
-    var rounded = Math.round(yearValue);
-    if (Math.abs(yearValue - rounded) < 0.001) {
-      return 'Alter ' + formatQuarterAge(state.startAge + rounded) + ' · Jahr ' + (rounded + 1);
-    }
-    var monthsInYear = Math.round((yearValue - Math.floor(yearValue)) * 12);
-    if (monthsInYear >= 12) monthsInYear = 0;
-    return 'Alter ' + formatQuarterAge(state.startAge + yearValue) + ' · Monat ' + monthsInYear;
+    return formatQuarterAge(state.startAge + yearValue);
   }
 
   function clamp(value, min, max) {
@@ -3943,9 +3937,13 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
     var invested = state.startEquity + point.cumulativeSavings;
     dom.ageInvested.textContent = formatEuro(invested);
     dom.ageGain.textContent = formatSignedEuro(point.equity - invested);
-    dom.ageMonthlyShare.textContent = point.monthlySavingsShare === null || !isFinite(point.monthlySavingsShare)
+    var monthlyShare = point.monthlySavingsShare;
+    if (selection.month === 0 && lastSimulation.monthly[1]) {
+      monthlyShare = lastSimulation.monthly[1].monthlySavingsShare;
+    }
+    dom.ageMonthlyShare.textContent = monthlyShare === null || !isFinite(monthlyShare)
       ? '–'
-      : formatPercent1(point.monthlySavingsShare);
+      : formatPercent1(monthlyShare);
 
     updateLeverageMaintenance(point);
   }
@@ -4159,7 +4157,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
 
       // Alters-Badge nur im Hauptdiagramm
       if (chart.canvas && chart.canvas.id === 'mainChart') {
-        var label = 'Alter ' + formatQuarterAge(state.startAge + selectedYears);
+        var label = formatQuarterAge(state.startAge + selectedYears);
         ctx.font = '500 11px ' + THEME.font;
         var textWidth = ctx.measureText(label).width;
         var boxWidth = textWidth + 16;
@@ -4467,7 +4465,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
         if (!items.length) return '';
         var raw = items[0].raw;
         if (raw && typeof raw === 'object' && raw.month !== undefined) {
-          return 'Monat ' + raw.month + ' · Alter ' + formatQuarterAge(state.startAge + raw.month / 12);
+          return formatQuarterAge(state.startAge + raw.month / 12);
         }
         return formatTooltipTime(items[0].parsed.x);
       },
