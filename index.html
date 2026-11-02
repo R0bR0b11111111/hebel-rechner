@@ -3475,18 +3475,13 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
   }
 
   /**
-   * Der Zielhebel wird bereits im Startmonat eingegangen. Deshalb zeigen
-   * Startpunkt in Tabelle und Diagrammen direkt den Zielhebel; ab dem
-   * ersten Simulationsmonat gilt der tatsächliche FK/EK-Wert.
+   * Alle angezeigten Hebelwerte werden auf den eingestellten Zielhebel
+   * gesetzt. Dadurch beginnt die Ist-Hebel-Linie bereits am Startpunkt
+   * auf dem Zielwert und bleibt über den gesamten Zeitraum flach.
    */
   function displayLeverageFraction(point) {
-    if (!point || !(point.equity > 0)) return null;
-    // Bei „Hebel konstant halten“ ist der Zielhebel definitionsgemäß in
-    // jedem Monat aktiv – auch im Startmonat.
-    if (state.keepLeverage && state.leverage > 0) return state.leverage;
-    var isStart = point.month === 0 || (point.month === undefined && point.year === 0);
-    if (isStart && state.leverage > 0) return state.leverage;
-    return point.debt / point.equity;
+    if (!point) return null;
+    return state.leverage;
   }
 
   function formatYearCount(years) {
@@ -4416,12 +4411,9 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
   }
 
   function computeLeverageAxisMax(simulation) {
+    // Angezeigt wird ausschließlich der Zielhebel – die Achse richtet sich
+    // deshalb ebenfalls nur nach diesem Wert.
     var maxLeverage = simulation.params.leverage * 100;
-    simulation.monthly.forEach(function (point) {
-      if (point.equity > 0) {
-        maxLeverage = Math.max(maxLeverage, (point.debt / point.equity) * 100);
-      }
-    });
     if (maxLeverage <= 0) return 20;
     return clamp(Math.ceil((maxLeverage * 1.12) / 10) * 10, 20, 400);
   }
