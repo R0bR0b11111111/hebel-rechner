@@ -3481,6 +3481,9 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
    */
   function displayLeverageFraction(point) {
     if (!point || !(point.equity > 0)) return null;
+    // Bei „Hebel konstant halten“ ist der Zielhebel definitionsgemäß in
+    // jedem Monat aktiv – auch im Startmonat.
+    if (state.keepLeverage && state.leverage > 0) return state.leverage;
     var isStart = point.month === 0 || (point.month === undefined && point.year === 0);
     if (isStart && state.leverage > 0) return state.leverage;
     return point.debt / point.equity;
