@@ -1,0 +1,57 @@
+iOS-ANLEITUNG – Hebel-Vermögensrechner als App
+================================================
+
+Diese Version ist eine installierbare Web-App (PWA). Sie sieht auf dem
+iPhone wie eine normale App aus und lässt sich auf dem Home-Bildschirm
+ablegen – ohne App Store, ohne Apple-Entwicklerkonto.
+
+Voraussetzung: Der Ordner muss über eine HTTPS-Adresse erreichbar sein.
+Über Dateien/„file://“ lässt sich die App auf dem iPhone nicht sauber
+öffnen und nicht als App installieren.
+
+1) Online stellen (dauerhaft, kostenlos, ohne Server-Kenntnisse)
+---------------------------------------------------------------
+Option A – Netlify Drop:
+  • https://app.netlify.com/drop im Browser öffnen
+  • Den kompletten Ordner "ios-app" hineinziehen
+  • Die angezeigte HTTPS-Adresse öffnen
+
+Option B – GitHub Pages:
+  • Ordnerinhalt in ein GitHub-Repository legen
+  • Settings → Pages → Deploy from branch (main / root)
+
+Option C – beliebiger statischer Webspace:
+  • Den Inhalt des Ordners "ios-app" hochladen
+  • Wichtig: index.html muss im Web-Root liegen
+
+2) Auf dem iPhone installieren
+------------------------------
+  • Adresse in SAFARI öffnen (nicht in Chrome oder in der Discord-App)
+  • Unten auf das Teilen-Symbol tippen
+  • "Zum Home-Bildschirm" → "Hinzufügen"
+  • Die App startet danach im Vollbild ohne Safari-Leiste
+
+3) Offline
+----------
+Nach dem ersten Laden speichert der Service Worker die App.
+Danach startet die App auch ohne Internet – Chart.js wird vorgehalten,
+und selbst ohne Chart.js zeichnet die App die Diagramme mit dem
+eingebauten Offline-Fallback.
+
+4) Lokal testen (am PC)
+-----------------------
+Im Ordner "ios-app" ausführen:
+  python -m http.server 8765
+Dann im Browser öffnen:
+  http://localhost:8765
+
+Inhalte des Ordners
+-------------------
+index.html               – die App (HTML + CSS + JavaScript)
+manifest.webmanifest     – App-Name, Icon, Startverhalten
+sw.js                    – Service Worker für Offline-Nutzung
+icons/                   – App-Icons (iOS/Android/PWA)
+ANLEITUNG.txt            – diese Datei
+
+Hinweis: Nach einem App-Update den Cache-Versionierungswert in sw.js
+erhöhen (z. B. v1 → v2), damit iPhones die neue Version laden.
