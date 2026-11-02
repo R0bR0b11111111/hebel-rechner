@@ -3475,13 +3475,17 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
   }
 
   /**
-   * Alle angezeigten Hebelwerte werden auf den eingestellten Zielhebel
-   * gesetzt. Dadurch beginnt die Ist-Hebel-Linie bereits am Startpunkt
-   * auf dem Zielwert und bleibt über den gesamten Zeitraum flach.
+   * Bei aktivem „Hebel konstant halten“ bleibt der angezeigte Hebel
+   * durchgehend auf dem Zielwert. Ohne diese Option beginnt der Hebel
+   * ebenfalls auf dem Zielwert (er wird zum Start aufgenommen), entwickelt
+   * sich danach aber mit dem tatsächlichen FK/EK-Verhältnis.
    */
   function displayLeverageFraction(point) {
     if (!point) return null;
-    return state.leverage;
+    if (state.keepLeverage) return state.leverage;
+    var isStart = point.month === 0 || (point.month === undefined && point.year === 0);
+    if (isStart) return state.leverage;
+    return point.equity > 0 ? point.debt / point.equity : state.leverage;
   }
 
   function formatYearCount(years) {
