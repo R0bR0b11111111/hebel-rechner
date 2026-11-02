@@ -3462,6 +3462,18 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
     return years + ',' + months;
   }
 
+  /** Chart-Beschriftung im Vierteljahresraster, z. B. 18,0 · 18,3 · 18,6 · 18,9 · 19,0. */
+  function formatQuarterAge(age) {
+    if (!isFinite(age)) return '–';
+    var years = Math.floor(age + 1e-9);
+    var months = Math.round((age - years) * 12);
+    if (months >= 12) {
+      years += 1;
+      months = 0;
+    }
+    return years + ',' + months;
+  }
+
   function formatYearCount(years) {
     return String(years) + (years === 1 ? ' Jahr' : ' Jahren');
   }
@@ -3521,16 +3533,16 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
     return percentFormatter1.format(value);
   }
 
-  /** Tooltip-Titel: Jahreszählung ab Jahr 1, unterjährig in Monaten. */
+  /** Tooltip-Titel: Jahreszählung ab Jahr 1, Vierteljahre als 18,0 · 18,3 … */
   function formatTooltipTime(yearValue) {
     if (!isFinite(yearValue)) return '';
     var rounded = Math.round(yearValue);
     if (Math.abs(yearValue - rounded) < 0.001) {
-      return 'Alter ' + (state.startAge + rounded) + ' · Jahr ' + (rounded + 1);
+      return 'Alter ' + formatQuarterAge(state.startAge + rounded) + ' · Jahr ' + (rounded + 1);
     }
     var monthsInYear = Math.round((yearValue - Math.floor(yearValue)) * 12);
     if (monthsInYear >= 12) monthsInYear = 0;
-    return 'Alter ' + formatAge(state.startAge + yearValue) + ' · Monat ' + monthsInYear;
+    return 'Alter ' + formatQuarterAge(state.startAge + yearValue) + ' · Monat ' + monthsInYear;
   }
 
   function clamp(value, min, max) {
@@ -4147,7 +4159,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
 
       // Alters-Badge nur im Hauptdiagramm
       if (chart.canvas && chart.canvas.id === 'mainChart') {
-        var label = 'Alter ' + formatAge(state.startAge + selectedYears);
+        var label = 'Alter ' + formatQuarterAge(state.startAge + selectedYears);
         ctx.font = '500 11px ' + THEME.font;
         var textWidth = ctx.measureText(label).width;
         var boxWidth = textWidth + 16;
@@ -4173,35 +4185,37 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
   /* ------------------------------------------------------------
    * Chart.js – Daten & Optionen
    * ---------------------------------------------------------- */
-  function buildYearTicks(years) {
-    var total = Math.max(1, Math.round(years));
-    var candidates = [1, 2, 3, 4, 5, 6, 10];
-    var step = total;
+  /** Grobe Vierteljahres-Ticks für das Canvas-Fallback (breitenabhängig ausgedünnt). */
+  function buildQuarterTicks(years) {
+    var totalQuarters = Math.max(4, Math.round(years * 4));
+    var candidates = [1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20];
+    var step = totalQuarters;
 
     for (var i = 0; i < candidates.length; i += 1) {
-      if (total % candidates[i] === 0 && total / candidates[i] <= 8) {
+      if (totalQuarters % candidates[i] === 0 && totalQuarters / candidates[i] <= 8) {
         step = candidates[i];
         break;
       }
     }
-    if (step === total && total > 8) step = Math.ceil(total / 8);
+    if (step === totalQuarters && totalQuarters > 8) step = Math.ceil(totalQuarters / 8);
 
     var ticks = [];
-    for (var value = 0; value <= total; value += step) ticks.push(value);
-    if (ticks[ticks.length - 1] !== total) ticks.push(total);
+    for (var quarter = 0; quarter <= totalQuarters; quarter += step) ticks.push(quarter / 4);
+    if (ticks[ticks.length - 1] !== years) ticks.push(years);
     return ticks;
   }
 
-  function yearAxisTicks(years) {
-    return function (axis) {
-      axis.ticks = buildYearTicks(years).map(function (value) {
-        return { value: value };
-      });
-    };
+  function quarterTickCallback(value) {
+    return formatQuarterAge(state.startAge + value);
   }
 
-  function yearTickCallback(value) {
-    return Number.isInteger(value) ? String(state.startAge + value) : '';
+  /** Achsen-Takt: kurze Horizonte zeigen Vierteljahre, lange Horizonte saubere Jahres-Schritte. */
+  function quarterTickStep(years) {
+    if (years <= 5) return 0.25;
+    if (years <= 10) return 0.5;
+    if (years <= 20) return 1;
+    if (years <= 30) return 2;
+    return 5;
   }
 
   function areaGradient(context, rgb, topAlpha, bottomAlpha) {
@@ -4254,7 +4268,16 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
     if (!chart || !chart.scales || !chart.scales.x) return;
     var raw = chart.scales.x.getValueForPixel(event.x);
     if (!isFinite(raw)) return;
-    setSelectedMonth(Math.round(raw * 12));
+    // Diagramme zeigen Vierteljahreswerte – die Auswahl rastet auf 3-Monats-Schritte.
+    var month = Math.round(raw * 12);
+    setSelectedMonth(Math.round(month / 3) * 3);
+  }
+
+  /** Nur die Datenpunkte, die in den Diagrammen gezeigt werden (alle 3 Monate). */
+  function quarterlyPoints(simulation) {
+    return simulation.monthly.filter(function (point) {
+      return point.month % 3 === 0;
+    });
   }
 
   function buildMainChartData(simulation) {
@@ -4262,7 +4285,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
       datasets: [
         {
           label: 'Bruttovermögen',
-          data: simulation.monthly.map(function (point) {
+          data: quarterlyPoints(simulation).map(function (point) {
             return { x: point.month / 12, y: point.assets };
           }),
           borderColor: THEME.gray,
@@ -4280,7 +4303,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
         },
         {
           label: 'Eigenkapital',
-          data: simulation.monthly.map(function (point) {
+          data: quarterlyPoints(simulation).map(function (point) {
             return { x: point.month / 12, y: point.equity };
           }),
           borderColor: THEME.ink,
@@ -4300,7 +4323,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
         },
         {
           label: 'Fremdkapital',
-          data: simulation.monthly.map(function (point) {
+          data: quarterlyPoints(simulation).map(function (point) {
             return { x: point.month / 12, y: point.debt };
           }),
           borderColor: THEME.lightGray,
@@ -4350,12 +4373,14 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
           ticks: {
             color: THEME.axis,
             padding: 8,
-            autoSkip: false,
+            autoSkip: true,
+            autoSkipPadding: 14,
+            maxTicksLimit: 21,
             maxRotation: 0,
+            stepSize: quarterTickStep(simulation.params.years),
             font: { size: 11, family: THEME.font },
-            callback: yearTickCallback
-          },
-          afterBuildTicks: yearAxisTicks(simulation.params.years)
+            callback: quarterTickCallback
+          }
         },
         y: {
           beginAtZero: true,
@@ -4406,7 +4431,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
       datasets: [
         {
           label: 'Sparraten-Anteil',
-          data: simulation.monthly.map(function (point, index) {
+          data: quarterlyPoints(simulation).map(function (point, index) {
             var source = index === 0 && simulation.monthly[1] ? simulation.monthly[1] : point;
             return {
               x: point.month / 12,
@@ -4442,7 +4467,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
         if (!items.length) return '';
         var raw = items[0].raw;
         if (raw && typeof raw === 'object' && raw.month !== undefined) {
-          return 'Monat ' + raw.month + ' · Alter ' + formatAge(state.startAge + raw.month / 12);
+          return 'Monat ' + raw.month + ' · Alter ' + formatQuarterAge(state.startAge + raw.month / 12);
         }
         return formatTooltipTime(items[0].parsed.x);
       },
@@ -4497,12 +4522,14 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
           ticks: {
             color: THEME.axis,
             padding: 8,
-            autoSkip: false,
+            autoSkip: true,
+            autoSkipPadding: 14,
+            maxTicksLimit: 21,
             maxRotation: 0,
+            stepSize: quarterTickStep(simulation.params.years),
             font: { size: 11, family: THEME.font },
-            callback: yearTickCallback
-          },
-          afterBuildTicks: yearAxisTicks(simulation.params.years)
+            callback: quarterTickCallback
+          }
         },
         y: {
           beginAtZero: true,
@@ -4529,7 +4556,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
       datasets: [
         {
           label: 'Ist-Hebel',
-          data: simulation.monthly.map(function (point) {
+          data: quarterlyPoints(simulation).map(function (point) {
             return {
               x: point.month / 12,
               y: point.equity > 0 ? (point.debt / point.equity) * 100 : 0
@@ -4550,7 +4577,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
         },
         {
           label: 'Ziel-Hebel',
-          data: simulation.monthly.map(function (point) {
+          data: quarterlyPoints(simulation).map(function (point) {
             return { x: point.month / 12, y: target };
           }),
           borderColor: 'rgba(255, 255, 255, 0.35)',
@@ -4597,12 +4624,14 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
           ticks: {
             color: THEME.axis,
             padding: 8,
-            autoSkip: false,
+            autoSkip: true,
+            autoSkipPadding: 14,
+            maxTicksLimit: 21,
             maxRotation: 0,
+            stepSize: quarterTickStep(simulation.params.years),
             font: { size: 11, family: THEME.font },
-            callback: yearTickCallback
-          },
-          afterBuildTicks: yearAxisTicks(simulation.params.years)
+            callback: quarterTickCallback
+          }
         },
         y: {
           beginAtZero: true,
@@ -4660,18 +4689,18 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
 
     mainChart.data = buildMainChartData(simulation);
     mainChart.options.scales.x.max = simulation.params.years;
-    mainChart.options.scales.x.afterBuildTicks = yearAxisTicks(simulation.params.years);
+    mainChart.options.scales.x.ticks.stepSize = quarterTickStep(simulation.params.years);
     mainChart.update('none');
 
     leverageChart.data = buildLeverageChartData(simulation);
     leverageChart.options.scales.x.max = simulation.params.years;
-    leverageChart.options.scales.x.afterBuildTicks = yearAxisTicks(simulation.params.years);
+    leverageChart.options.scales.x.ticks.stepSize = quarterTickStep(simulation.params.years);
     leverageChart.options.scales.y.max = computeLeverageAxisMax(simulation);
     leverageChart.update('none');
 
     savingsShareChart.data = buildSavingsShareChartData(simulation);
     savingsShareChart.options.scales.x.max = simulation.params.years;
-    savingsShareChart.options.scales.x.afterBuildTicks = yearAxisTicks(simulation.params.years);
+    savingsShareChart.options.scales.x.ticks.stepSize = quarterTickStep(simulation.params.years);
     savingsShareChart.options.scales.y.max = computeSavingsShareAxisMax(simulation);
     savingsShareChart.options.plugins.tooltip = savingsShareTooltip();
     savingsShareChart.update('none');
@@ -4731,7 +4760,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
           color: THEME.gray,
           fill: false,
           lineWidth: 2,
-          points: simulation.monthly.map(function (point) {
+          points: quarterlyPoints(simulation).map(function (point) {
             return [point.month / 12, point.assets];
           })
         },
@@ -4739,7 +4768,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
           color: THEME.ink,
           fill: true,
           lineWidth: 2.4,
-          points: simulation.monthly.map(function (point) {
+          points: quarterlyPoints(simulation).map(function (point) {
             return [point.month / 12, point.equity];
           })
         },
@@ -4748,7 +4777,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
           fill: false,
           dash: [4, 3],
           lineWidth: 2,
-          points: simulation.monthly.map(function (point) {
+          points: quarterlyPoints(simulation).map(function (point) {
             return [point.month / 12, point.debt];
           })
         }
@@ -4771,7 +4800,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
           fill: false,
           lineWidth: 1.6,
           selectionDot: false,
-          points: simulation.monthly.map(function (point) {
+          points: quarterlyPoints(simulation).map(function (point) {
             return [point.month / 12, simulation.params.leverage * 100];
           })
         },
@@ -4779,7 +4808,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
           color: THEME.ink,
           fill: false,
           lineWidth: 3,
-          points: simulation.monthly.map(function (point) {
+          points: quarterlyPoints(simulation).map(function (point) {
             return [point.month / 12, point.equity > 0 ? (point.debt / point.equity) * 100 : 0];
           })
         }
@@ -4800,7 +4829,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
           color: THEME.ink,
           fill: true,
           lineWidth: 2.4,
-          points: simulation.monthly.map(function (point, index) {
+          points: quarterlyPoints(simulation).map(function (point, index) {
             var source = index === 0 && simulation.monthly[1] ? simulation.monthly[1] : point;
             return [point.month / 12, source.monthlySavingsShare === null ? null : source.monthlySavingsShare * 100];
           })
@@ -4907,7 +4936,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
     // Vertikale Gitterlinien + Alters-Beschriftung
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    buildYearTicks(xMax).forEach(function (year) {
+    buildQuarterTicks(xMax).forEach(function (year) {
       var gridX = xForYear(year);
       ctx.strokeStyle = THEME.grid;
       ctx.beginPath();
@@ -4915,7 +4944,7 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
       ctx.lineTo(gridX + 0.5, padding.top + plotHeight);
       ctx.stroke();
       ctx.fillStyle = THEME.axis;
-      ctx.fillText(String(state.startAge + year), gridX, padding.top + plotHeight + 8);
+      ctx.fillText(formatQuarterAge(state.startAge + year), gridX, padding.top + plotHeight + 8);
     });
 
     ctx.fillStyle = THEME.axisTitle;
@@ -5204,7 +5233,8 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
         var plotWidth = rect.width - paddingLeft - paddingRight;
         if (plotWidth <= 0) return;
         var ratio = clamp((event.clientX - rect.left - paddingLeft) / plotWidth, 0, 1);
-        setSelectedMonth(Math.round(ratio * state.years * 12));
+        var month = Math.round(ratio * state.years * 12);
+        setSelectedMonth(Math.round(month / 3) * 3);
       });
     });
 
