@@ -3483,9 +3483,8 @@ tbody tr.is-final.is-selected td { color: #f5f5f5; }
   function displayLeverageFraction(point) {
     if (!point) return null;
     if (state.keepLeverage) return state.leverage;
-    var isStart = point.month === 0 || (point.month === undefined && point.year === 0);
-    if (isStart) return state.leverage;
-    return point.equity > 0 ? point.debt / point.equity : state.leverage;
+    if (!(point.equity > 0)) return 0;
+    return point.debt / point.equity;
   }
 
   function formatYearCount(years) {
